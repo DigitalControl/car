@@ -40,11 +40,45 @@
 float position_left = 0.0;
 float position_right = 0.0;
 int lspeed, rspeed;
+
+// At the moment, just hard-code in a command
+char input[100] = "s,10,10";
+int end_of_cmd = 0;
+
+/*
 char input[100];  // From the bluetooth UART
 unsigned int RXByteCtr = 0;
 int end_of_cmd = 0; // Flag that we are receiving characters.
 void transmit(const char *str); // Routine to send characters to the UART.
 int missed_k = 2;  // Start out disconnected.  This tells how many seconds we have missed connection to the UART.
+*/
+
+// Truth tables from:
+//   https://www.bananarobotics.com/shop/How-to-use-the-L298N-Dual-H-Bridge-Motor-Driver
+void leftForward() {
+    P8OUT |= BIT1;
+    P8OUT &= ~BIT2;
+}
+void leftBackward() {
+    P8OUT &= ~BIT1;
+    P8OUT |= BIT2;
+}
+void rightForward() {
+    P2OUT |= BIT3;
+    P3OUT &= ~BIT7;
+}
+void rightBackward() {
+    P2OUT &= ~BIT3;
+    P3OUT |= BIT7;
+}
+void leftBrake() {
+    P8OUT &= ~BIT1;
+    P8OUT &= ~BIT2;
+}
+void rightBrake() {
+    P2OUT &= ~BIT3;
+    P3OUT &= ~BIT7;
+}
 
 /*
  * main.c
@@ -94,11 +128,26 @@ void main(void) {
 	P4DIR |= GreenLed; //Make P4.7 an output so we can use the red LED
 	P1OUT &= ~RedLed;  //Turn off the red LED
 	P4OUT &= ~GreenLed;  //Turn off the green LED
-	;P3DIR |= BIT7;	// Left motor direction.
+	//P3DIR |= BIT7;	// Left motor direction.
+    /*
 	P8DIR |= BIT2 + BIT1;  // Left and right motor direction respectively.
-	;P3OUT |= BIT7; // Burned out P3.7
+	//P3OUT |= BIT7; // Burned out P3.7
 	P8OUT |= BIT2; // Right wheel
 	P8OUT |= BIT1; // Left wheel
+    */
+
+    // Set motor direction outputs to be output pins
+    P8DIR |= BIT2 + BIT1;
+    P2DIR |= BIT3;
+    P3DIR |= BIT7;
+
+    // We need another high pin. So, let's use P6.5, right next to 3.3V
+    P6DIR |= BIT5;
+    P6OUT |= BIT5;
+
+    // Set them to go forward
+    leftForward();
+    rightForward();
 
 	/* Initialize the UART */
 	P3SEL |= BIT3 + BIT4;                     // P3.4,5 = USCI_A0 TXD/RXD
@@ -186,8 +235,10 @@ void main(void) {
 				WDTCTL = WDT_MRST_0_064;
 				break;
 			case 'k': // Blueberry poles the device to make sure it is in range with 'k'.
+                /*
 				missed_k = 0; // Reset number missed to zero.
 				if(VERBOSE) transmit(ok);
+                */
 				break;
 			case 's':
 				lspeedc = strtok(NULL, comma);
@@ -207,14 +258,14 @@ void main(void) {
 				// until they start moving.
 				if (lspeed < 0) { // pwm P2.4 goes to IA on HG7881
 					//P1OUT &= ~RedLed; // Turn off LED for debugging
-					;P3OUT &= ~BIT7; // Low means backwards.
+					//P3OUT &= ~BIT7; // Low means backwards.
 					P8OUT &= ~BIT1; // Low means backwards.
 					//TA2CCR1= (int)(100-((abs(lspeed)*0.34f+66))+0.5f);
 					TA2CCR1=(100-abs(lspeed)); // TA2CCR1 ranges from 0 to 100.
 					// You must invert the PWM when the direction changes.
 				} else { // Direction goes to IB on HG7881
 					//P1OUT |= RedLed; // Turn it on.
-					;P3OUT |= BIT7; // High means forwards.
+					//P3OUT |= BIT7; // High means forwards.
 					P8OUT |= BIT1; // High means forwards.
 					//TA2CCR1= (int)((abs(lspeed)*0.34f+66)+0.5f);
 					TA2CCR1=abs(lspeed);
@@ -232,14 +283,20 @@ void main(void) {
 				}
 				break;
 			case 'i':
+                /*
 				transmit(information);
+                */
 				break;
 			default:
+                /*
 				transmit(unrecognized_string);
+                */
 				break;
 			}
 			end_of_cmd = 0; //Reset end_of_cmd
+            /*
 			RXByteCtr = 0; //Reset Receive Byte counter
+            */
 		}
 	}
 }
@@ -254,7 +311,9 @@ void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
 #else
 #error Compiler not supported!
 #endif
-{	//Check if the UCA0RXBUF is different from 0x0A which is Enter key from keyboard.
+{
+    /*
+    //Check if the UCA0RXBUF is different from 0x0A which is Enter key from keyboard.
 	if (UCA0RXBUF != 0x0A){
 		input[RXByteCtr++] = UCA0RXBUF;
 		//If it is not ENTER, load received character
@@ -266,14 +325,17 @@ void __attribute__ ((interrupt(USCI_A0_VECTOR))) USCI_A0_ISR (void)
 		// If it is not, set end_of_cmd
 		input[RXByteCtr] = 0;//This wipes out the \r with a 0.  This is funny.  There should be no /r.
 	}	//Add null character at the end of input string
+    */
 }
 
+/*
 void transmit(const char *str) { //Consider doing this with an interrupt too.
 	while (*str != 0) {	//Do this to the end of the string
 		while (!(UCTXIFG & UCA0IFG)); // Wait here until the transmit interrupt flag is set
 		UCA0TXBUF = *str++;       //Load UCA0TXBUF with current string element
 	}	//then go to the next element
 }
+*/
 
 // Timer1_A1 Interrupt Vector (TAIV) handler (Used for ensuring connection to the phone)
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
@@ -285,6 +347,7 @@ void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) TIMER1_A1_ISR (void)
 #error Compiler not supported!
 #endif
 {
+    /*
 	switch(__even_in_range(TA1IV,14))
 	{
 		case 0: break;// No interrupt
@@ -306,8 +369,8 @@ void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) TIMER1_A1_ISR (void)
 			break;
 		default: break;
 	}
+    */
 }
-
 
 // Timer0_A1 Interrupt Vector (TAIV) handler (Read encoders, and do feedback.)
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
@@ -364,8 +427,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			sum_rsp_error += rsp_error;
 			if (lspeed < 0) { // pwm P2.4 goes to IA on HG7881
 				//P1OUT &= ~RedLed; // Turn off LED for debugging
-				;P3OUT &= ~BIT7; // Low means backwards.
-				P8OUT &= ~BIT1; // High means forwards.
+                leftBackward();
 				TA2CCR1 = (unsigned int)(100-fminf(100.0, abs(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error)));
 				// You must invert the PWM when the direction changes.
 			} else if (lspeed == 0) { // Reset to stop if speed == 0.
@@ -376,14 +438,13 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			}
 			else { // Direction goes to IB on HG7881
 				//P1OUT |= RedLed; // Turn it on. (for debugging)
-				;P3OUT |= BIT7; // High means forwards.
-				P8OUT |= BIT1; // High means forwards.
+                leftForward();
 				TA2CCR1 = (unsigned int)fminf(100.0,abs(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error));
 				// fminf used to make sure we don't go over 100.
 			}
 			if (rspeed < 0) { // pwm P2.5 goes to IA on HG7881
 				//P4OUT &= ~GreenLed; // Turn off LED for debugging
-				P8OUT &= ~BIT2; // Low means backwards.
+                rightBackward();
 				TA2CCR2 = (unsigned int)(100-fminf(100.0, abs(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error)));
 			} else if (rspeed == 0) {
 				rsp_error = 0.0;
@@ -393,7 +454,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			}
 			else { // Direction goes to IB on HG7881
 				//P4OUT |= GreenLed; // Turn it on. (for debugging)
-				P8OUT |= BIT2; // High means forwards.
+                rightForward();
 				TA2CCR2 = (unsigned int)fminf(100.0, abs(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error));
 			}
 			TA0CCTL3 &= ~CCIFG; // Clear CCIFG

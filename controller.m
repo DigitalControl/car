@@ -69,3 +69,11 @@ figure;
 rlocus(dC*dsys);
 axis([-1.5 1.5 -1 1]);
 title('Root Locus of Compensated System');
+
+% Check to see that system is controllable
+sys_rank = rank(ctrb(A,B))
+
+% Check to see that system is observable
+ob = obsv(sys);
+observability = rank(ob)
+
