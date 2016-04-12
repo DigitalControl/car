@@ -227,8 +227,10 @@ void main(void) {
 			if(VERBOSE) printf("R: %s\n",input); // Show what we are receiving on the console for debugging.
 			command = strtok(input, comma);
 			if(VERBOSE){
+				/*
 				transmit(command);// For debugging
 				transmit(enter);// For debugging
+				*/
 			}
 			switch (*command) {
 			case 'r': //Reset was sent.
@@ -336,6 +338,7 @@ void transmit(const char *str) { //Consider doing this with an interrupt too.
 	}	//then go to the next element
 }
 */
+
 
 // Timer1_A1 Interrupt Vector (TAIV) handler (Used for ensuring connection to the phone)
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
