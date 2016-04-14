@@ -42,8 +42,8 @@ float position_right = 0.0;
 int lspeed, rspeed;
 
 // At the moment, just hard-code in a command
-char input[100] = "s,10,10";
-int end_of_cmd = 0;
+char input[100] = "s,-1,-1";
+int end_of_cmd = 1;
 
 /*
 char input[100];  // From the bluetooth UART
@@ -261,25 +261,29 @@ void main(void) {
 				if (lspeed < 0) { // pwm P2.4 goes to IA on HG7881
 					//P1OUT &= ~RedLed; // Turn off LED for debugging
 					//P3OUT &= ~BIT7; // Low means backwards.
-					P8OUT &= ~BIT1; // Low means backwards.
+					//P8OUT &= ~BIT1; // Low means backwards.
+					leftBackward();
 					//TA2CCR1= (int)(100-((abs(lspeed)*0.34f+66))+0.5f);
 					TA2CCR1=(100-abs(lspeed)); // TA2CCR1 ranges from 0 to 100.
 					// You must invert the PWM when the direction changes.
 				} else { // Direction goes to IB on HG7881
 					//P1OUT |= RedLed; // Turn it on.
 					//P3OUT |= BIT7; // High means forwards.
-					P8OUT |= BIT1; // High means forwards.
+					//P8OUT |= BIT1; // High means forwards.
+					leftForward();
 					//TA2CCR1= (int)((abs(lspeed)*0.34f+66)+0.5f);
 					TA2CCR1=abs(lspeed);
 				}
 				if (rspeed < 0) { // pwm P2.5 goes to IA on HG7881
 					//P4OUT &= ~GreenLed; // Turn off LED for debugging
-					P8OUT &= ~BIT2; // Low means backwards.
+					//P8OUT &= ~BIT2; // Low means backwards.
+					rightBackward();
 					//TA2CCR2 = (int)((100-(abs(rspeed)*0.34f+66))+0.5f);
 					TA2CCR2=(100-abs(rspeed));
 				} else { // Direction goes to IB on HG7881
 					//P4OUT |= GreenLed; // Turn it on.
-					P8OUT |= BIT2; // High means forwards.
+					//P8OUT |= BIT2; // High means forwards.
+					rightForward();
 					//TA2CCR2 = (int)((abs(rspeed)*0.34f+66)+0.5f);
 					TA2CCR2 = abs(rspeed);
 				}
@@ -398,7 +402,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 	static int encoder_left_changed = 0;
 	static int encoder_right_changed = 0;
 
-	P4OUT ^= GreenLed; // Turn it on. (for debugging)
+	//P4OUT ^= GreenLed; // Turn it on. (for debugging)
 	saveTA0IV = TA0IV;  // TAxIV changes can be changed after reading if another interrupt is pending.
 	//printf("TA0IV is: %d\n",saveTA0IV);
 	switch(__even_in_range(saveTA0IV,14))
@@ -411,12 +415,14 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			lastTA0CCR1 = TA0CCR1;
 			encoder_left_changed = 1;
 			TA0CCTL1 &= ~CCIFG; // Clear CCIFG.
+			P4OUT ^= GreenLed; // Turn it on. (for debugging)
 			break;
 		case 4: // CCR2 (Capture for right wheel.)
 			speed_right = 32768.0*BETA/(TA0CCR2-lastTA0CCR2);
 			lastTA0CCR2 = TA0CCR2;
 			encoder_right_changed = 1;
 			TA0CCTL2 &= ~CCIFG; // Clear CCIFG.
+			P1OUT ^= RedLed; // For debugging.
 			break;
 		case 6: // CCR3 (Sampling time)
 			TA0CCR3 += samplePeriodT; // It will automatically wrap around.
@@ -470,7 +476,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			break;// reserved
 		case 14:// overflow
 			//if (VERBOSE) printf("No capture in 4 seconds.\n");
-			P1OUT ^= RedLed; // For debugging.
+			//P1OUT ^= RedLed; // For debugging.
 			if(!(encoder_left_changed)){
 				speed_left = 0.0; // If it goes for 4 seconds without moving one period, it is stopped
 				lsp_error = 0.0;
