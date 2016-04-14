@@ -42,7 +42,7 @@ float position_right = 0.0;
 int lspeed, rspeed;
 
 // At the moment, just hard-code in a command
-char input[100] = "s,-1,-1";
+char input[100] = "s,-80,-80";
 int end_of_cmd = 1;
 
 /*
@@ -389,6 +389,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 #error Compiler not supported!
 #endif
 {
+	/*
 	static float speed_left = 0.0;
 	static float speed_right = 0.0;
 	static unsigned int lastTA0CCR1 = 0;
@@ -426,8 +427,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			break;
 		case 6: // CCR3 (Sampling time)
 			TA0CCR3 += samplePeriodT; // It will automatically wrap around.
-			/* Do control here.
-			*/
+			// Do control here.
 			dif_lsp_error = lspeed-speed_left-lsp_error;
 			dif_rsp_error = rspeed-speed_right-rsp_error;
 			lsp_error = lspeed-speed_left;
@@ -496,5 +496,5 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			break;
 		default:
 			break;
-	}
+	} */
 }
