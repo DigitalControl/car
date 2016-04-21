@@ -28,9 +28,9 @@
 #include <stdio.h>
 
 /* Global Variables */
-#define KP 50 // Proportional constant for feedback and control.
-#define KI 5.0 // Sum constant for feedback and control.
-#define KD 10.0 // Difference constant for feedback and control.
+#define KP 1000 // Proportional constant for feedback and control.
+#define KI 0 // Sum constant for feedback and control.
+#define KD 0 // Difference constant for feedback and control.
 #define BETA 1.0  // Feedback gain. Might be dangerous making it > 1.
 
 #define VERBOSE 1
@@ -42,7 +42,7 @@ float position_right = 0.0;
 int lspeed, rspeed;
 
 // At the moment, just hard-code in a command
-char input[100] = "s,-80,-80";
+char input[100] = "s,10,10";
 int end_of_cmd = 1;
 
 /*
@@ -193,7 +193,7 @@ void main(void) {
 	 * We could send the velocity and position data to the phone for further
 	 * analysis if we want.
 	 *
-	 * We will impliment feedback on the velocity of each wheel so following the command
+	 * We will implement feedback on the velocity of each wheel so following the command
 	 * from the phone will be more precise, rather than open loop.  Hopefully
 	 * this will take care of the problem where differently charged batteries
 	 * make the robot behave differently.
@@ -264,15 +264,15 @@ void main(void) {
 					//P8OUT &= ~BIT1; // Low means backwards.
 					leftBackward();
 					//TA2CCR1= (int)(100-((abs(lspeed)*0.34f+66))+0.5f);
-					TA2CCR1=(100-abs(lspeed)); // TA2CCR1 ranges from 0 to 100.
+					TA2CCR1=100-(abs(lspeed)); // TA2CCR1 ranges from 0 to 100.
 					// You must invert the PWM when the direction changes.
-				} else { // Direction goes to IB on HG7881
+				} else { // Direction goes to IB on HG788
 					//P1OUT |= RedLed; // Turn it on.
 					//P3OUT |= BIT7; // High means forwards.
 					//P8OUT |= BIT1; // High means forwards.
 					leftForward();
 					//TA2CCR1= (int)((abs(lspeed)*0.34f+66)+0.5f);
-					TA2CCR1=abs(lspeed);
+					TA2CCR1=100-abs(lspeed);
 				}
 				if (rspeed < 0) { // pwm P2.5 goes to IA on HG7881
 					//P4OUT &= ~GreenLed; // Turn off LED for debugging
@@ -285,7 +285,7 @@ void main(void) {
 					//P8OUT |= BIT2; // High means forwards.
 					rightForward();
 					//TA2CCR2 = (int)((abs(rspeed)*0.34f+66)+0.5f);
-					TA2CCR2 = abs(rspeed);
+					TA2CCR2 = 100-abs(rspeed);
 				}
 				break;
 			case 'i':
@@ -379,6 +379,10 @@ void __attribute__ ((interrupt(TIMER1_A1_VECTOR))) TIMER1_A1_ISR (void)
     */
 }
 
+unsigned int bounds(float value) {
+	return fmaxf(0, fminf(100, value));
+}
+
 // Timer0_A1 Interrupt Vector (TAIV) handler (Read encoders, and do feedback.)
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_A1_VECTOR
@@ -389,14 +393,14 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 #error Compiler not supported!
 #endif
 {
-	/*
+
 	static float speed_left = 0.0;
 	static float speed_right = 0.0;
 	static unsigned int lastTA0CCR1 = 0;
 	static unsigned int lastTA0CCR2 = 0;
 	static unsigned int saveTA0IV;
-	float sum_lsp_error = 0.0;
-	float sum_rsp_error = 0.0;
+	static float sum_lsp_error = 0.0;
+	static float sum_rsp_error = 0.0;
 	float dif_lsp_error = 0.0;
 	float dif_rsp_error = 0.0;
 	float lsp_error = 0.0, rsp_error = 0.0;
@@ -437,7 +441,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			if (lspeed < 0) { // pwm P2.4 goes to IA on HG7881
 				//P1OUT &= ~RedLed; // Turn off LED for debugging
                 leftBackward();
-				TA2CCR1 = (unsigned int)(100-fminf(100.0, abs(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error)));
+				TA2CCR1 = 100-bounds(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error);
 				// You must invert the PWM when the direction changes.
 			} else if (lspeed == 0) { // Reset to stop if speed == 0.
 				lsp_error = 0.0;
@@ -448,13 +452,13 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			else { // Direction goes to IB on HG7881
 				//P1OUT |= RedLed; // Turn it on. (for debugging)
                 leftForward();
-				TA2CCR1 = (unsigned int)fminf(100.0,abs(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error));
+				TA2CCR1 = 100-bounds(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error);
 				// fminf used to make sure we don't go over 100.
 			}
 			if (rspeed < 0) { // pwm P2.5 goes to IA on HG7881
 				//P4OUT &= ~GreenLed; // Turn off LED for debugging
                 rightBackward();
-				TA2CCR2 = (unsigned int)(100-fminf(100.0, abs(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error)));
+				TA2CCR2 = 100-bounds(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error);
 			} else if (rspeed == 0) {
 				rsp_error = 0.0;
 				sum_rsp_error = 0.0;
@@ -464,7 +468,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			else { // Direction goes to IB on HG7881
 				//P4OUT |= GreenLed; // Turn it on. (for debugging)
                 rightForward();
-				TA2CCR2 = (unsigned int)fminf(100.0, abs(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error));
+				TA2CCR2 = 100-bounds(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error);
 			}
 			TA0CCTL3 &= ~CCIFG; // Clear CCIFG
 			break;// reserved
@@ -474,7 +478,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			break;// reserved
 		case 12:
 			break;// reserved
-		case 14:// overflow
+		/* case 14:// overflow
 			//if (VERBOSE) printf("No capture in 4 seconds.\n");
 			//P1OUT ^= RedLed; // For debugging.
 			if(!(encoder_left_changed)){
@@ -493,8 +497,8 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			else {
 				encoder_right_changed = 0;
 			}
-			break;
+			break; */
 		default:
 			break;
-	} */
+	}
 }
