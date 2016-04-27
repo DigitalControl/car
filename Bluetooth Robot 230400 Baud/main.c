@@ -80,8 +80,9 @@ void rightBrake() {
     P3OUT &= ~BIT7;
 }
 
-unsigned int bounds(float value) {
-	return fmaxf(0, fminf(100, value));
+// Saturate values between -100 and 100
+float bounds(float value) {
+	return fmaxf(-100, fminf(100, value));
 }
 
 /*
@@ -409,6 +410,13 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 	static int encoder_left_changed = 0;
 	static int encoder_right_changed = 0;
 
+    // Saturate integral, hint from Michael, but why do we do this?
+    float max_sum = 10000;
+
+    // Our new outputs from the PID controller
+    int left_output = 0;
+    int right_output = 0;
+
 	//P4OUT ^= GreenLed; // Turn it on. (for debugging)
 	saveTA0IV = TA0IV;  // TAxIV changes can be changed after reading if another interrupt is pending.
 	//printf("TA0IV is: %d\n",saveTA0IV);
@@ -438,11 +446,12 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			dif_rsp_error = rspeed-speed_right-rsp_error;
 			lsp_error = lspeed-speed_left;
 			rsp_error = rspeed-speed_right;
-			float max_sum = 10000;
 
 			sum_lsp_error += lsp_error;
 			sum_rsp_error += rsp_error;
 
+            // Saturate the integral sums so they don't go over the maximum
+            // magnitude
 			if (sum_lsp_error < -max_sum)
 				sum_lsp_error = -max_sum;
 			else if (sum_lsp_error > max_sum)
@@ -453,39 +462,48 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			else if (sum_rsp_error > max_sum)
 				sum_rsp_error = max_sum;
 
+            // Calculate new PID output, bounded between -100 and 100
+            left_output = bounds(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error);
 
-			if (lspeed < 0) { // pwm P2.4 goes to IA on HG7881
-				//P1OUT &= ~RedLed; // Turn off LED for debugging
+            // Set direction based on sign
+            if (left_output > 0)
                 leftBackward();
-				TA2CCR1 = 100-bounds(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error+abs(lspeed));
-				// You must invert the PWM when the direction changes.
-			} else if (lspeed == 0) { // Reset to stop if speed == 0.
+            else
+                leftForward();
+
+            // Set output based on magnitude
+            TA2CCR1 = 100-abs(left_output);
+
+            // If commanded to zero
+			if (lspeed == 0) {
 				lsp_error = 0.0;
 				sum_lsp_error = 0.0;
 				dif_lsp_error = 0.0;
+                leftBrake();
 				TA2CCR1 = 0;
 			}
-			else { // Direction goes to IB on HG7881
-				//P1OUT |= RedLed; // Turn it on. (for debugging)
-                leftForward();
-				TA2CCR1 = 100-bounds(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error+abs(lspeed));
-				// fminf used to make sure we don't go over 100.
-			}
-			if (rspeed < 0) { // pwm P2.5 goes to IA on HG7881
-				//P4OUT &= ~GreenLed; // Turn off LED for debugging
+
+            // Calculate new PID output, bounded between -100 and 100
+            right_output = bounds(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error);
+
+            // Set direction based on sign
+            if (right_output > 0)
+                rightForward();
+            else
                 rightBackward();
-				TA2CCR2 = 100-bounds(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error+abs(rspeed));
-			} else if (rspeed == 0) {
+
+            // Set output based on magnitude
+            TA2CCR2 = 100-abs(right_output);
+
+            // If commanded to zero
+			if (rspeed == 0) {
 				rsp_error = 0.0;
 				sum_rsp_error = 0.0;
 				dif_rsp_error = 0.0;
+                rightBrake();
 				TA2CCR2 = 0;
 			}
-			else { // Direction goes to IB on HG7881
-				//P4OUT |= GreenLed; // Turn it on. (for debugging)
-                rightForward();
-				TA2CCR2 = 100-bounds(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error+abs(rspeed));
-			}
+
 			TA0CCTL3 &= ~CCIFG; // Clear CCIFG
 			break;// reserved
 		case 8:

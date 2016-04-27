@@ -77,3 +77,10 @@ sys_rank = rank(ctrb(A,B))
 ob = obsv(sys);
 observability = rank(ob)
 
+%
+% PID controller in State-space
+%
+%kp=1;ki=2;kd=3;
+%c=pid(ki,kp,kd)
+%ctf=tf(c)
+%css=ss(c)
