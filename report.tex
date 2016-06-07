@@ -5,6 +5,7 @@
 \usepackage{float}
 \usepackage{placeins}
 \usepackage{gensymb}
+\usepackage{hyperref}
 
 \geometry{
 left = 1.25in,
@@ -21,7 +22,7 @@ bmargin = 1in,
 
 \begin{document}
 
-\title{Car Wheel Velocity Controller}
+\title{Velocity Control of Car Wheels}
 \author{Garrett Wilson and Nathan Zimmerly \\ \\
 ENGR 352}
 \maketitle
@@ -32,9 +33,28 @@ ENGR 352}
 
 \pagebreak
 
+\section{Components}
+\begin{itemize}
+\item Robotic car kit
+\item L298N Dual H-Bridge Motor Controller
+\item TI LaunchPad MSP430
+\end{itemize}
+
+\section{Wiring}
+\begin{itemize}
+\item ENA (PWM left) -- P2.4
+\item ENB (PWM right) -- P2.5
+\item IN1 -- P8.1
+\item IN2 -- P8.2
+\item IN3 -- P2.3
+\item IN4 -- P3.7
+\item Left sensor -- P1.2
+\item Right sensor -- P1.3
+\end{itemize}
+
 \section{PID Controller}
 \begin{itemize}
-\item Based simulation on \\ http://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed\&section=ControlDigital
+\item Based simulation on \href{http://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed&section=ControlDigital}{DC Motor Speed: Digital Controller Design}
 \item Based code on Frohne's code, but adjusted for:
 	\begin{itemize}
 	\item not using Bluetooth -- commenting out Bluetooth code and hard-coding in the speeds we want
@@ -49,12 +69,19 @@ ENGR 352}
 \item lots of PID tuning
 \end{itemize}
 
-\subsection{??}
-
 \section{Future Work}
 \begin{itemize}
 \item We encountered issues debugging since we tried having printf statements while it was running, which changed how the controller acted since sending those over serial was too slow. Thus, Frohne recommended we save the values into an array and then after the controller runs for a bit we then print out to the console.
 \item Something was wrong with our measurements. Michael and Chris also ran into this, and they thought it had to do with both wheels operating at the same time. They didn't have the issues when only controlling one wheel. This might be the case here too, but in either case, we'd need to fix these measurement issues if we are going to get the controller to work well.
+\end{itemize}
+
+\section{References}
+\begin{itemize}
+\item \href{http://fweb.wallawalla.edu/class-wiki/index.php/Assembly_Language_Programming#2015_Robot_Information}{Robot information}
+\item \href{https://www.bananarobotics.com/shop/How-to-use-the-L298N-Dual-H-Bridge-Motor-Driver}{Controlling motor directions with PWM}
+\item \href{http://www.instructables.com/id/Arduino-Modules-L298N-Dual-H-Bridge-Motor-Controll/?ALLSTEPS}{How to wire up motor driver}
+\item \href{http://www.ti.com.cn/cn/lit/ug/slau533c/slau533c.pdf}{TI LaunchPad MSP430 F5529 Development Kit Datasheet}
+\item \href{http://www.hyzt.com/manager/upimg/hy301\%E2\%80\%9407A.pdf}{Datasheet for the photo interrupter}
 \end{itemize}
 
 \end{document}
