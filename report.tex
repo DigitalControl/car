@@ -1,0 +1,60 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{gensymb}
+
+\geometry{
+left = 1.25in,
+lmargin = 1.25in,
+inner = 1.25in,
+right = 1.25in,
+rmargin = 1.25in,
+outer = 1.25in,
+top = 1in,
+tmargin = 1in,
+bottom = 1in,
+bmargin = 1in,
+}
+
+\begin{document}
+
+\title{Car Wheel Velocity Controller}
+\author{Garrett Wilson and Nathan Zimmerly \\ \\
+ENGR 352}
+\maketitle
+
+\clearpage
+
+\tableofcontents
+
+\pagebreak
+
+\section{PID Controller}
+\begin{itemize}
+\item Based simulation on \\ http://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed\&section=ControlDigital
+\item Based code on Frohne's code, but adjusted for:
+	\begin{itemize}
+	\item not using Bluetooth -- commenting out Bluetooth code and hard-coding in the speeds we want
+	\item using a different H-Bridge -- switching how the controller sets direction since this H-Bridge has four control wires, changed PWM output ranges since forward and backwards are treated the same in this case (just with different control outputs)
+	\end{itemize}
+\item turn on/off the two LED's on the board when interrupts arrive from the left and right wheel sensors, so we know if they are working
+\item make integral sum terms static so on every interrupt they aren't reset to zero
+\item limit the control output to be between 0 and 100 since that is the range for our PWM output
+\item set a max value for the integral sum terms
+\item tried adding in the set point into the control signal, and then removed it after talking with Frohne and realizing that the error won't actually go to zero when it's going the desired speed
+\item allow negative control signals which turn the wheels in the opposite direction instead of cutting the signal off at zero
+\item lots of PID tuning
+\end{itemize}
+
+\subsection{??}
+
+\section{Future Work}
+\begin{itemize}
+\item We encountered issues debugging since we tried having printf statements while it was running, which changed how the controller acted since sending those over serial was too slow. Thus, Frohne recommended we save the values into an array and then after the controller runs for a bit we then print out to the console.
+\item Something was wrong with our measurements. Michael and Chris also ran into this, and they thought it had to do with both wheels operating at the same time. They didn't have the issues when only controlling one wheel. This might be the case here too, but in either case, we'd need to fix these measurement issues if we are going to get the controller to work well.
+\end{itemize}
+
+\end{document}
