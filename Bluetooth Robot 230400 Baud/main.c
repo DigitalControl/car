@@ -28,7 +28,7 @@
 #include <stdio.h>
 
 /* Global Variables */
-#define KP 5 // Proportional constant for feedback and control. oscillates at 50
+#define KP 1 // Proportional constant for feedback and control. oscillates at 50
 #define KI .005 // Sum constant for feedback and control.
 #define KD 0 // Difference constant for feedback and control.
 #define BETA 1.0  // Feedback gain. Might be dangerous making it > 1.
@@ -39,10 +39,12 @@
 #define samplePeriodT 100 // In TimerA0 counts (1/32,768)s.
 float position_left = 0.0;
 float position_right = 0.0;
-int lspeed, rspeed;
 
 // At the moment, just hard-code in a command
-char input[100] = "s,30,30";
+//char input[100] = "s,30,20";
+char input[10] = "s,";
+int lspeed = 100;
+int rspeed = 100;
 int end_of_cmd = 1;
 
 /*
@@ -53,23 +55,42 @@ void transmit(const char *str); // Routine to send characters to the UART.
 int missed_k = 2;  // Start out disconnected.  This tells how many seconds we have missed connection to the UART.
 */
 
+char leftGoingForward = 1;
+char rightGoingForward = 1;
+
 // Truth tables from:
 //   https://www.bananarobotics.com/shop/How-to-use-the-L298N-Dual-H-Bridge-Motor-Driver
 void leftForward() {
     P8OUT |= BIT1;
     P8OUT &= ~BIT2;
+    leftGoingForward = 1;
 }
 void leftBackward() {
     P8OUT &= ~BIT1;
     P8OUT |= BIT2;
+    leftGoingForward = 0;
+}
+void leftSwap() {
+	if (leftGoingForward)
+		leftBackward();
+	else
+		leftForward();
 }
 void rightForward() {
     P2OUT |= BIT3;
     P3OUT &= ~BIT7;
+    rightGoingForward = 1;
 }
 void rightBackward() {
     P2OUT &= ~BIT3;
     P3OUT |= BIT7;
+    rightGoingForward = 0;
+}
+void rightSwap() {
+	if (rightGoingForward)
+		rightBackward();
+	else
+		rightForward();
 }
 void leftBrake() {
     P8OUT &= ~BIT1;
@@ -248,12 +269,12 @@ void main(void) {
                 */
 				break;
 			case 's':
-				lspeedc = strtok(NULL, comma);
+				/*lspeedc = strtok(NULL, comma);
 				lspeed = atoi(lspeedc); // lspeed ranges from -100 to 100.
 				// Do we need to check for errors.  Probably not.  atoi returns 0
 				// if there is no number.
 				rspeedc = strtok(NULL,NULL);
-				rspeed = atoi(rspeedc);
+				rspeed = atoi(rspeedc);*/
 				if(VERBOSE) {
 					printf("Speed Changed: lspeed = %d .  rspeed = %d \n",lspeed, rspeed);
 				}
@@ -396,7 +417,10 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 #error Compiler not supported!
 #endif
 {
-
+	static int this_is_nathan = 0;
+	++this_is_nathan;
+	static float lastSpeedLeft = 0.0;
+	static float lastSpeedRight = 0.0;
 	static float speed_left = 0.0;
 	static float speed_right = 0.0;
 	static unsigned int lastTA0CCR1 = 0;
@@ -406,7 +430,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 	static float sum_rsp_error = 0.0;
 	float dif_lsp_error = 0.0;
 	float dif_rsp_error = 0.0;
-	float lsp_error = 0.0, rsp_error = 0.0;
+	static float lsp_error = 0.0, rsp_error = 0.0;
 	static int encoder_left_changed = 0;
 	static int encoder_right_changed = 0;
 
@@ -425,6 +449,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 		case 0:
 			break;// No interrupt
 		case 2: // CCR1 (Capture for left wheel.)
+			lastSpeedLeft = speed_left;
 			speed_left = 32768.0*BETA/(TA0CCR1-lastTA0CCR1);  // Set it so fast is 100.  100*32768*.01/TACCR1;
 			// What happens if TA0CCR1 wraps around?  It seems to work in a test because unsigned int is 16 bits.
 			lastTA0CCR1 = TA0CCR1;
@@ -433,6 +458,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			P4OUT ^= GreenLed; // Turn it on. (for debugging)
 			break;
 		case 4: // CCR2 (Capture for right wheel.)
+			lastSpeedRight = speed_right;
 			speed_right = 32768.0*BETA/(TA0CCR2-lastTA0CCR2);
 			lastTA0CCR2 = TA0CCR2;
 			encoder_right_changed = 1;
@@ -442,8 +468,8 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 		case 6: // CCR3 (Sampling time)
 			TA0CCR3 += samplePeriodT; // It will automatically wrap around.
 			// Do control here.
-			dif_lsp_error = lspeed-speed_left-lsp_error;
-			dif_rsp_error = rspeed-speed_right-rsp_error;
+			dif_lsp_error = (lspeed-speed_left)-(lspeed-lastSpeedLeft);
+			dif_rsp_error = (rspeed-speed_right)-(rspeed-lastSpeedRight);
 			lsp_error = lspeed-speed_left;
 			rsp_error = rspeed-speed_right;
 
@@ -452,6 +478,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 
             // Saturate the integral sums so they don't go over the maximum
             // magnitude
+
 			if (sum_lsp_error < -max_sum)
 				sum_lsp_error = -max_sum;
 			else if (sum_lsp_error > max_sum)
@@ -464,15 +491,25 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 
             // Calculate new PID output, bounded between -100 and 100
             left_output = bounds(KP*lsp_error+KI*sum_lsp_error+KD*dif_lsp_error);
+            right_output = bounds(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error);
+
+            if (this_is_nathan%100 == 0)
+            	printf("%d\n", (int)right_output);
 
             // Set direction based on sign
-            if (left_output > 0)
-                leftBackward();
+            /*if (left_output < 0)
+            	leftBrake();
+            else*/ if (lspeed > 0)
+            	leftForward();
             else
-                leftForward();
+            	leftBackward();
 
-            // Set output based on magnitude
-            TA2CCR1 = 100-abs(left_output);
+            /*if (right_output < 0)
+				rightBrake();
+			else*/ if (rspeed > 0)
+				rightForward();
+			else
+				rightBackward();
 
             // If commanded to zero
 			if (lspeed == 0) {
@@ -483,26 +520,19 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 				TA2CCR1 = 0;
 			}
 
-            // Calculate new PID output, bounded between -100 and 100
-            right_output = bounds(KP*rsp_error+KI*sum_rsp_error+KD*dif_rsp_error);
-
-            // Set direction based on sign
-            if (right_output > 0)
-                rightForward();
-            else
-                rightBackward();
-
-            // Set output based on magnitude
-            TA2CCR2 = 100-abs(right_output);
-
-            // If commanded to zero
 			if (rspeed == 0) {
 				rsp_error = 0.0;
 				sum_rsp_error = 0.0;
 				dif_rsp_error = 0.0;
-                rightBrake();
+				rightBrake();
 				TA2CCR2 = 0;
 			}
+
+            // Set output based on magnitude
+            TA2CCR1 = 100-fmaxf(0,left_output);
+            TA2CCR2 = 100-fmaxf(0,right_output);
+			//TA2CCR1 = 100-abs(left_output);
+			//TA2CCR2 = 100-abs(right_output);
 
 			TA0CCTL3 &= ~CCIFG; // Clear CCIFG
 			break;// reserved
@@ -512,7 +542,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			break;// reserved
 		case 12:
 			break;// reserved
-		/* case 14:// overflow
+		 case 14:// overflow
 			//if (VERBOSE) printf("No capture in 4 seconds.\n");
 			//P1OUT ^= RedLed; // For debugging.
 			if(!(encoder_left_changed)){
@@ -531,7 +561,7 @@ void __attribute__ ((interrupt(TIMER0_A1_VECTOR))) TIMER0_A1_ISR (void)
 			else {
 				encoder_right_changed = 0;
 			}
-			break; */
+			break;
 		default:
 			break;
 	}
