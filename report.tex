@@ -33,6 +33,9 @@ ENGR 352}
 
 \pagebreak
 
+\section{Purpose}
+The purpose of this project was to control the velocity of a car by using a PID controller. This would be useful for having a constant speed at a variety of speeds the user could set, instead of just the maximum. To determine the speed of the car, we used an optical encoder on each motor. Based 
+
 \section{Components}
 \begin{itemize}
 \item Robotic car kit
@@ -53,21 +56,15 @@ ENGR 352}
 \end{itemize}
 
 \section{PID Controller}
-\begin{itemize}
-\item Based simulation on \href{http://ctms.engin.umich.edu/CTMS/index.php?example=MotorSpeed&section=ControlDigital}{DC Motor Speed: Digital Controller Design}
-\item Based code on Frohne's code, but adjusted for:
-	\begin{itemize}
-	\item not using Bluetooth -- commenting out Bluetooth code and hard-coding in the speeds we want
-	\item using a different H-Bridge -- switching how the controller sets direction since this H-Bridge has four control wires, changed PWM output ranges since forward and backwards are treated the same in this case (just with different control outputs)
-	\end{itemize}
-\item turn on/off the two LED's on the board when interrupts arrive from the left and right wheel sensors, so we know if they are working
-\item make integral sum terms static so on every interrupt they aren't reset to zero
-\item limit the control output to be between 0 and 100 since that is the range for our PWM output
-\item set a max value for the integral sum terms
-\item tried adding in the set point into the control signal, and then removed it after talking with Frohne and realizing that the error won't actually go to zero when it's going the desired speed
-\item allow negative control signals which turn the wheels in the opposite direction instead of cutting the signal off at zero
-\item lots of PID tuning
-\end{itemize}
+A PID controller uses the a proportional, integral, and derivative term to control a system. In PID controllers, the proportional controller decreases the rise time, the integral controller reduces steady state error, and the derivative controller improves settling time and the stability of the system. We used the PID controller because it is a simpler model than alternatives, and can often work just as well. By adapting Professor Frohne's code to work without bluetooth and for our own H-Bridge we were able to get a PID controller to run based on \href{http://ctms.engin.umich.edu/CTMS/index.php}{Control Tutorials}.
+
+To tune the PID controller, we started with only the proportional term, and increased it until there was a slight oscillation in the motor. Once we found the proportional term, we divided it in two and increased the integral term the motors started oscillating again. After that we added a derivative term and adjusted it until we had good results. We found that our integral sum terms would increase to a number with such a high magnitude that it would take a long time to undo. Because of this, we set a limiting magnitude for the term. The tuning was difficult because using the printf function in Code Composer Studio (CCS) would cause the microcontroller to lag which affected our controller negatively. Because of this we had to tune the PID controller simply by looking at the wheels spin instead of looking at graphs. To help with debugging, we set an LED to turn on and off with the optical encoders output for help debugging. 
+
+We tried changing how the PID controller worked several times. One time we tried adding a set point into the control signal, and then removed it after talking with Frohne and realizing that the error won't actually go to zero when it's going the desired speed. Also, we allow negative control signals which turn the wheels in the opposite direction instead of cutting the signal off at zero. This allowed for the motors to spin backwards, but that was not helpful. We also had the option to use the H-Bridge to brake our motors, but we chose not to do this because when we simply turned off the motors, the car slowed down fast enough.Frohne's code had a few issues including reseting the integral sum terms to zero every interrupt, so we made the terms static so that they would not reset. Also, we limited the code between 0 and 100 since that is the range for our PWM output. However, between 0 and 30 the PWM output was not strong enough to make the motor spin. 
+
+\section{Results}
+We were able to tune the wheels individually to be a fairly constant speed, but once we ran them together they would oscillate on and off randomly. Also, when the sensor took a reading inbetween the open and closed points on the code track, the microcontroller would read values that the motors were spinning much faster than is possible. At a certain point the car would zig-zag across the floor in a fairly straight line, but that was the best result we had. Another group had similar results as us and ended up using one wheel to set the speed and a PID controller on the other wheel to match it. This method eliminated the problem of both sensors not being able to run properly off of the microcontroller. We are not sure why both sensors do not work at the same time, a possibility is the the mbed cannot keep up with both at a fast enough rate to make the sensors input accurate. We used an oscilliscope to look at the sensor output and it appeared to be working just fine, so we believe the issue is with the microcontroller.
+
 
 \section{Future Work}
 \begin{itemize}
